@@ -2,9 +2,9 @@ import os
 import sys
 import ctypes
 import platform
-import math
+import glob
 
-import colorschemes
+from .colorschemes import schemes, valid_schemes
 
 from PIL import Image
 
@@ -65,12 +65,21 @@ class Heatmap:
                 libname = "cHeatmap-x86.dll"
                 if "64" in platform.architecture()[0]:
                     libname = "cHeatmap-x64.dll"
+
+            # to support multiple Python versions
+            libname_search_string = '*'.join(libname.split('.'))
+
             # now rip through everything in sys.path to find 'em.  Should be in site-packages
             # or local dir
             for d in sys.path:
-                if os.path.isfile(os.path.join(d, libname)):
-                    self._heatmap = ctypes.cdll.LoadLibrary(
-                        os.path.join(d, libname))
+                # search for matching file names
+                for f in glob.glob(os.path.join(d, libname_search_string)):
+                    self._heatmap = ctypes.cdll.LoadLibrary(f)
+
+                    break
+
+                if self._heatmap is not None:
+                    break
 
         if not self._heatmap:
             raise Exception("Heatmap shared library not found in PYTHONPATH.")
@@ -122,7 +131,7 @@ class Heatmap:
         if not ret:
             raise Exception("Unexpected error during processing.")
 
-        self.img = Image.frombuffer('RGBA', (self.size[0], self.size[1]), 
+        self.img = Image.frombuffer('RGBA', (self.size[0], self.size[1]),
                                     arrFinalImage, 'raw', 'RGBA', 0, 1)
         return self.img
 
@@ -146,12 +155,12 @@ class Heatmap:
 
         #TODO is there a better way to do this??
         flat = []
-        for r, g, b in colorschemes.schemes[scheme]:
+        for r, g, b in schemes[scheme]:
             flat.append(r)
             flat.append(g)
             flat.append(b)
         arr_cs = (
-            ctypes.c_int * (len(colorschemes.schemes[scheme]) * 3))(*flat)
+            ctypes.c_int * (len(schemes[scheme]) * 3))(*flat)
         return arr_cs
 
     def _ranges(self, points):
@@ -189,10 +198,12 @@ class Heatmap:
             ((east, south), (west, north)) = self._ranges(self.points)
 
         bytes = self.KML % (tilePath, north, south, east, west)
-        file(kmlFile, "w").write(bytes)
+
+        with open(kmlFile, 'w') as f:
+            f.write(bytes)
 
     def schemes(self):
         """
         Return a list of available color scheme names.
         """
-        return colorschemes.valid_schemes()
+        return valid_schemes()
