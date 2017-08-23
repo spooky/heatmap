@@ -44,7 +44,7 @@ setup(name='heatmap',
       ext_modules=[cHeatmap, ],
       cmdclass={'install': post_install,
                 'build_ext': mybuild},
-      requires=["Pillow", ],
+      install_requires=["Pillow", ],
       test_suite="test",
       tests_require=["Pillow", ],
       )
